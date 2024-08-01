@@ -1,5 +1,9 @@
 # VOICEVOX to SRT
 
+## Download
+
+[Latest release](https://github.com/1l0/voicevox2srt/releases/latest)
+
 ## Usage
 
 1. At first, export wav + txt sequential files from VOICEVOX
@@ -23,4 +27,12 @@ Specify target directory:
 
 ```sh
 voicevox2srt target/dir
+```
+
+## Build
+
+With [Go](https://go.dev/)
+
+```sh
+go install
 ```
