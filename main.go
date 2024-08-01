@@ -37,7 +37,7 @@ func main() {
 	sortFiles(files)
 
 	captions := []subtitles.Caption{}
-	prevTime := makeTime(0, 0, 0, 0)
+	offset := makeTime(0, 0, 0, 0)
 
 	for _, file := range files {
 		f, err := os.Open(file.AudioFilePath)
@@ -64,15 +64,15 @@ func main() {
 			log.Fatalln(err)
 		}
 
-		extended := prevTime.Add(dur)
+		extended := offset.Add(dur)
 
 		captions = append(captions, subtitles.Caption{
 			Seq:   file.Seq,
-			Start: prevTime,
+			Start: offset,
 			End:   extended,
 			Text:  []string{string(b)},
 		})
-		prevTime = extended
+		offset = extended
 	}
 
 	if len(captions) < 1 {
