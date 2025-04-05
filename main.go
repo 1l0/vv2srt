@@ -14,11 +14,12 @@ import (
 )
 
 const (
-	sec2nanosec       = 1000000000.0
-	adjustmentNanoSec = 60000000.0
+	sec2nanosec = 1000000000.0
 )
 
 var outputFilename string
+var isAivis bool = false
+var adjustmentNanoSec float64 = 0.0
 
 func init() {
 	log.SetFlags(log.Lshortfile)
@@ -36,8 +37,14 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	if !exp.MatchString(projPath) {
+	m := exp.FindStringSubmatch(projPath)
+	if len(m) < 3 {
 		log.Fatalln(fmt.Errorf("unsupported project file"))
+	}
+	// temporal adjust due to a bug of AivisSpeech
+	if m[1] == "aisp" {
+		isAivis = true
+		adjustmentNanoSec = 60000000.0
 	}
 	sub, err := parseSubtitles(projPath)
 	if err != nil {
@@ -88,17 +95,20 @@ func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
 				return nil, err
 			}
 			speedScale := item.Query.SpeedScale
-			offset += item.Query.PrePhonemeLength * sec2nanosec
+			offset += item.Query.PrePhonemeLength * sec2nanosec / speedScale
 			for _, acc := range item.Query.AccentPhrases {
 				for _, mo := range acc.Moras {
-					offset += (mo.ConsonantLength * sec2nanosec) / speedScale
+					if mo.Consonant != "" {
+						offset += (mo.ConsonantLength * sec2nanosec) / speedScale
+					}
 					offset += (mo.VowelLength * sec2nanosec) / speedScale
 				}
 				if acc.PauseMora != nil {
-					offset += (acc.PauseMora.VowelLength * sec2nanosec) / speedScale
+					offset += (acc.PauseMora.VowelLength * item.Query.PauseLengthScale * sec2nanosec) / speedScale
 				}
 			}
-			offset += item.Query.PostPhonemeLength*sec2nanosec + adjustmentNanoSec
+			offset += item.Query.PostPhonemeLength * sec2nanosec / speedScale
+			offset += adjustmentNanoSec
 			nextEpoch := zero.Add(time.Duration(offset))
 			captions = append(captions, subtitles.Caption{
 				Seq:   i,
@@ -111,7 +121,7 @@ func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
 			return nil, fmt.Errorf("audio item not found for the key: %s", key)
 		}
 	}
-	log.Printf("end: %d:%d:%d:%d\n", epoch.Hour(), epoch.Minute(), epoch.Second(), epoch.Nanosecond())
+	fmt.Printf("total time: %d:%d:%d:%d\n", epoch.Hour(), epoch.Minute(), epoch.Second(), epoch.Nanosecond())
 
 	return &subtitles.Subtitle{
 		Captions: captions,
