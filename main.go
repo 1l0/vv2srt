@@ -1,90 +1,49 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
-	"path/filepath"
+	"regexp"
 	"time"
 
-	"github.com/go-audio/wav"
+	"github.com/1l0/voicevox2srt/model"
 	"github.com/martinlindhe/subtitles"
 )
 
-var outputName string
+const (
+	sec2nanosec       = 1000000000.0
+	adjustmentNanoSec = 60000000.0
+)
+
+var outputFilename string
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	flag.StringVar(&outputName, "o", "subtitle.srt", "output file name")
+	flag.StringVar(&outputFilename, "o", "subtitles.srt", "output file name")
 	flag.Parse()
 }
 
 func main() {
-	dir, err := os.Getwd()
+	args := flag.Args()
+	if len(args) < 1 {
+		log.Fatalln(fmt.Errorf("missing project file path (.vvproj or .aisp)"))
+	}
+	projPath := args[0]
+	exp, err := regexp.Compile(`.+\.(aisp)|(vvproj)$`)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	if len(flag.Args()) > 0 {
-		dir = flag.Args()[0]
+	if !exp.MatchString(projPath) {
+		log.Fatalln(fmt.Errorf("unsupported project file"))
 	}
-
-	files, err := collectFiles(dir)
+	sub, err := parseSubtitles(projPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	sortFiles(files)
-
-	captions := []subtitles.Caption{}
-	offset := makeTime(0, 0, 0, 0)
-
-	for _, file := range files {
-		f, err := os.Open(file.AudioFilePath)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		dur, err := wav.NewDecoder(f).Duration()
-		if err != nil {
-			log.Fatalln(err)
-		}
-		if err := f.Close(); err != nil {
-			log.Fatalln(err)
-		}
-
-		f2, err := os.Open(file.TextFilePath)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		b, err := io.ReadAll(f2)
-		if err != nil {
-			log.Fatalln(err)
-		}
-		if err := f2.Close(); err != nil {
-			log.Fatalln(err)
-		}
-
-		extended := offset.Add(dur)
-
-		captions = append(captions, subtitles.Caption{
-			Seq:   file.Seq,
-			Start: offset,
-			End:   extended,
-			Text:  []string{string(b)},
-		})
-		offset = extended
-	}
-
-	if len(captions) < 1 {
-		log.Fatalln(fmt.Errorf("captions not found"))
-	}
-
-	s := subtitles.Subtitle{
-		Captions: captions,
-	}
-
-	target := filepath.Join(dir, outputName)
-	f, err := os.OpenFile(target, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(outputFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -95,9 +54,68 @@ func main() {
 	if _, err := f.Seek(0, 0); err != nil {
 		log.Fatalln(err)
 	}
-	if _, err := f.WriteString(s.AsSRT()); err != nil {
+	if _, err := f.WriteString(sub.AsSRT()); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
+	readfile, err := os.Open(projectFilePath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	dec := json.NewDecoder(readfile)
+	proj := &model.Project{}
+	if err := dec.Decode(proj); err != nil {
+		return nil, err
+	}
+	if err := readfile.Close(); err != nil {
+		return nil, err
+	}
+	captions := []subtitles.Caption{}
+	zero := makeTime(0, 0, 0, 0)
+	epoch := makeTime(0, 0, 0, 0)
+	var offset float64 = 0.0
+
+	for i, key := range proj.Talk.AudioKeys {
+		if it, exist := proj.Talk.AudioItems[key]; exist {
+			b, err := json.Marshal(it)
+			if err != nil {
+				return nil, err
+			}
+			item := &model.AudioItem{}
+			if err := json.Unmarshal(b, item); err != nil {
+				return nil, err
+			}
+			speedScale := item.Query.SpeedScale
+			offset += item.Query.PrePhonemeLength * sec2nanosec
+			for _, acc := range item.Query.AccentPhrases {
+				for _, mo := range acc.Moras {
+					offset += (mo.ConsonantLength * sec2nanosec) / speedScale
+					offset += (mo.VowelLength * sec2nanosec) / speedScale
+				}
+				if acc.PauseMora != nil {
+					offset += (acc.PauseMora.VowelLength * sec2nanosec) / speedScale
+				}
+			}
+			offset += item.Query.PostPhonemeLength*sec2nanosec + adjustmentNanoSec
+			nextEpoch := zero.Add(time.Duration(offset))
+			captions = append(captions, subtitles.Caption{
+				Seq:   i,
+				Start: epoch,
+				End:   nextEpoch,
+				Text:  []string{item.Text},
+			})
+			epoch = nextEpoch
+		} else {
+			return nil, fmt.Errorf("audio item not found for the key: %s", key)
+		}
+	}
+	log.Printf("end: %d:%d:%d:%d\n", epoch.Hour(), epoch.Minute(), epoch.Second(), epoch.Nanosecond())
+
+	return &subtitles.Subtitle{
+		Captions: captions,
+	}, nil
 }
 
 func makeTime(h int, m int, s int, ms int) time.Time {
