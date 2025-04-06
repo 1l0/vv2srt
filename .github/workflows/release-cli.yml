@@ -24,11 +24,9 @@ jobs:
       - make-release
     strategy:
       matrix:
-        goos: [linux, freebsd, darwin, windows]
+        goos: [linux, darwin, windows]
         goarch: [amd64, arm64, riscv64]
         exclude:
-          - goarch: arm64
-            goos: windows
           - goarch: riscv64
             goos: windows
           - goarch: riscv64
