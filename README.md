@@ -1,6 +1,6 @@
 # vv2srt
 
-This command generates a SRT (SubRip) from a VOICEVOX or AivisSpeech project.
+This command generates an SRT (SubRip) from a VOICEVOX or AivisSpeech project.
 
 ## Download
 
@@ -8,8 +8,8 @@ This command generates a SRT (SubRip) from a VOICEVOX or AivisSpeech project.
 
 ## Usage
 
-1. **VOICEVOX or AivisSpeech**: Export or preview all of audio.
-    - This updates the necesarry parameters in your project.
+1. **VOICEVOX or AivisSpeech**: Export or preview all of audio in your project.
+    - This updates the necesarry parameters in the project.
 2. **VOICEVOX or AivisSpeech**: Save the project.
 3. Run the following command with the saved project file path.
     - By default, `<project file path>.srt` should be generated.
