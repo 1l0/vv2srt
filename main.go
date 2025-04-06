@@ -23,7 +23,7 @@ var adjustmentNanoSec float64 = 0.0
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	flag.StringVar(&outputFilename, "o", "subtitles.srt", "output file name")
+	flag.StringVar(&outputFilename, "o", "", "output file name")
 	flag.Parse()
 }
 
@@ -33,18 +33,23 @@ func main() {
 		log.Fatalln(fmt.Errorf("missing project file path (.vvproj or .aisp)"))
 	}
 	projPath := args[0]
-	exp, err := regexp.Compile(`.+\.(aisp)|(vvproj)$`)
+	exp, err := regexp.Compile(`.+\.(aisp|vvproj)$`)
 	if err != nil {
 		log.Fatalln(err)
 	}
+
 	m := exp.FindStringSubmatch(projPath)
-	if len(m) < 3 {
+
+	if len(m) < 2 {
 		log.Fatalln(fmt.Errorf("unsupported project file"))
 	}
-	// temporal adjust due to a bug of AivisSpeech
+	if outputFilename == "" {
+		outputFilename = m[0] + ".srt"
+	}
+
 	if m[1] == "aisp" {
 		isAivis = true
-		adjustmentNanoSec = 60000000.0
+		adjustmentNanoSec = 60000000.0 // temporal adjustment for the sync problem on AivisSpeech
 	}
 	sub, err := parseSubtitles(projPath)
 	if err != nil {
@@ -101,9 +106,11 @@ func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
 					if mo.Consonant != "" {
 						offset += (mo.ConsonantLength * sec2nanosec) / speedScale
 					}
-					offset += (mo.VowelLength * sec2nanosec) / speedScale
+					if mo.Vowel != "" {
+						offset += (mo.VowelLength * sec2nanosec) / speedScale
+					}
 				}
-				if acc.PauseMora != nil {
+				if acc.PauseMora != nil && acc.PauseMora.Vowel != "" {
 					offset += (acc.PauseMora.VowelLength * item.Query.PauseLengthScale * sec2nanosec) / speedScale
 				}
 			}
@@ -121,7 +128,20 @@ func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
 			return nil, fmt.Errorf("audio item not found for the key: %s", key)
 		}
 	}
-	fmt.Printf("total time: %d:%d:%d:%d\n", epoch.Hour(), epoch.Minute(), epoch.Second(), epoch.Nanosecond())
+	platform := func() string {
+		if isAivis {
+			return "AivisSearch"
+		}
+		return "VOICEVOX"
+	}()
+	fmt.Printf(
+		"Platform: %s\nDuration: %02d:%02d:%02d.%d\n",
+		platform,
+		epoch.Hour(),
+		epoch.Minute(),
+		epoch.Second(),
+		epoch.Nanosecond(),
+	)
 
 	return &subtitles.Subtitle{
 		Captions: captions,

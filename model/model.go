@@ -38,13 +38,13 @@ type AccentPhrase struct {
 	// IsInterrogative bool   `json:"isInterrogative"`
 	PauseMora *struct {
 		VowelLength float64 `json:"vowelLength"`
-		// Vowel       string  `json:"vowel"`
+		Vowel       string  `json:"vowel"`
 	} `json:"pauseMora,omitempty"`
 }
 
 type Mora struct {
 	// Text            string  `json:"text"`
-	// Vowel           string  `json:"vowel"`
+	Vowel       string  `json:"vowel"`
 	VowelLength float64 `json:"vowelLength"`
 	// Pitch           float64 `json:"pitch"`
 	Consonant       string  `json:"consonant"`
