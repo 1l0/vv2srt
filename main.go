@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/1l0/voicevox2srt/model"
+	"github.com/1l0/vv2srt/model"
 	"github.com/martinlindhe/subtitles"
 )
 
