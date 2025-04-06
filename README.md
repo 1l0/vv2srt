@@ -1,4 +1,6 @@
-# VOICEVOX to SRT
+# vv2srt
+
+This command generates a SRT (SubRip) from a VOICEVOX or AivisSpeech project.
 
 ## Download
 
@@ -6,33 +8,30 @@
 
 ## Usage
 
-1. At first, export wav + txt sequential files from VOICEVOX
-2. Run this command on the exported directory
+1. **VOICEVOX or AivisSpeech**: Export or preview all of audio.
+    > [!NOTE]
+    > This updates the necesarry parameters in your project.
+2. **VOICEVOX or AivisSpeech**: Save the project.
+3. Run the following command with the saved project file path.
+    > [!NOTE]
+    > By default, `<project file path>.srt` should be generated.
+
+### VOICEVOX
 
 ```sh
-voicevox2srt
+vv2srt <project name>.vvproj
 ```
 
-3. By default, `subtitle.srt` should be generated in the same directory
+### AivisSpeech
+
+```sh
+vv2srt <project name>.aisp
+```
 
 ### Options
 
-Specify output file name:
+Specify the output file path:
 
 ```sh
-voicevox2srt -o sample.srt
-```
-
-Specify target directory:
-
-```sh
-voicevox2srt target/dir
-```
-
-## Build
-
-With [Go](https://go.dev/)
-
-```sh
-go install
+vv2srt -o example.srt <project name>.vvproj
 ```
