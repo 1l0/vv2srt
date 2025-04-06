@@ -118,7 +118,7 @@ func parseSubtitles(projectFilePath string) (*subtitles.Subtitle, error) {
 			offset += adjustmentNanoSec
 			nextEpoch := zero.Add(time.Duration(offset))
 			captions = append(captions, subtitles.Caption{
-				Seq:   i,
+				Seq:   i + 1,
 				Start: epoch,
 				End:   nextEpoch,
 				Text:  []string{item.Text},
