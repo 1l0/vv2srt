@@ -4,7 +4,7 @@ This command generates an SRT (SubRip) from a VOICEVOX or AivisSpeech project.
 
 ## Download
 
-[Latest release](https://github.com/1l0/voicevox2srt/releases/latest)
+[Latest release](https://github.com/1l0/vv2srt/releases/latest)
 
 ## Usage
 
