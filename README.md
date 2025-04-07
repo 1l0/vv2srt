@@ -33,3 +33,9 @@ Specify the output file path:
 ```sh
 vv2srt -o example.srt <project name>.vvproj
 ```
+
+Add the duration adjustments (nano seconds per item):
+
+```sh
+vv2srt -d "-30000000" <project name>.vvproj
+```
