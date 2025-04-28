@@ -10,6 +10,12 @@ import (
 	"github.com/1l0/vv2srt/construct"
 )
 
+const (
+	//  TEMP: adjustments for the sync problem
+	adjustmentVoicevoxDefault = -30000000.0
+	adjustmentAivisDefault    = 60000000.0
+)
+
 var (
 	outputFilename string
 	isAivis        bool = false
@@ -20,8 +26,13 @@ var (
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	flag.StringVar(&outputFilename, "o", "", "output file name")
-	flag.Float64Var(&adjustmentNanoSec, "d", 0, "duration adjustment: nano seconds per item")
+	flag.StringVar(&outputFilename, "o", "", "Output file path.")
+	adjReadme := fmt.Sprintf(
+		"Duration adjustment in nano seconds per item. If you don't specify, following are set:\n\tVOICEVOX:\t%0.1f\n\tAivisSpeech:\t%0.1f",
+		adjustmentVoicevoxDefault,
+		adjustmentAivisDefault,
+	)
+	flag.Float64Var(&adjustmentNanoSec, "d", 0, adjReadme)
 	flag.Parse()
 }
 
@@ -49,9 +60,9 @@ func main() {
 	//  TEMP: adjustment for the sync problem
 	if adjustmentNanoSec == 0.0 {
 		if isAivis {
-			adjustmentNanoSec = 60000000.0
+			adjustmentNanoSec = adjustmentAivisDefault
 		} else {
-			adjustmentNanoSec = -30000000.0
+			adjustmentNanoSec = adjustmentVoicevoxDefault
 		}
 	}
 
