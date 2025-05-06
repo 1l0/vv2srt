@@ -15,12 +15,16 @@ const (
 	sec2nanoSec = 1000000000.0
 )
 
-func Project2subtitles(projectFilePath string, adjustmentNanoSec float64, isAivis bool) (*subtitles.Subtitle, error) {
+func offset2lab(offset float64) int {
+	return int(offset * 0.01)
+}
+
+func Project2subtitles(projectFilePath string, adjustmentNanoSec float64, isAivis, lab bool) (*subtitles.Subtitle, string, error) {
 	proj, err := loadProject(projectFilePath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return generateSubtitles(proj, adjustmentNanoSec, isAivis)
+	return generateSubtitles(proj, adjustmentNanoSec, isAivis, lab)
 }
 
 func loadProject(projectFilePath string) (*model.Project, error) {
@@ -37,44 +41,65 @@ func loadProject(projectFilePath string) (*model.Project, error) {
 	return proj, nil
 }
 
-func generateSubtitles(proj *model.Project, adjustmentNanoSec float64, isAivis bool) (*subtitles.Subtitle, error) {
+func generateSubtitles(proj *model.Project, adjustmentNanoSec float64, isAivis, lab bool) (*subtitles.Subtitle, string, error) {
 	captions := []subtitles.Caption{}
 	zero := makeTime(0, 0, 0, 0)
 	epoch := zero
 	var offset float64 = 0.0
 
+	labStr := ""
+
 	for i, key := range proj.Talk.AudioKeys {
 		it, exist := proj.Talk.AudioItems[key]
 		if !exist {
-			return nil, fmt.Errorf("audio item not found for the key: %s", key)
+			return nil, "", fmt.Errorf("audio item not found for the key: %s", key)
 		}
 		b, err := json.Marshal(it)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		item := &model.AudioItem{}
 		if err := json.Unmarshal(b, item); err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		speedScale := item.Query.SpeedScale
-		offset += item.Query.PrePhonemeLength * sec2nanoSec / speedScale
+
+		prePhenome := item.Query.PrePhonemeLength * sec2nanoSec / speedScale
+		if lab {
+			labStr += fmt.Sprintf("%d %d %s\n", offset2lab(offset), offset2lab(offset+prePhenome), "pau")
+		}
+		offset += prePhenome
+
 		for _, acc := range item.Query.AccentPhrases {
 			for _, mo := range acc.Moras {
 				if mo.Consonant != "" {
-					offset += (mo.ConsonantLength * sec2nanoSec) / speedScale
+					consonant := (mo.ConsonantLength * sec2nanoSec) / speedScale
+					if lab {
+						labStr += fmt.Sprintf("%d %d %s\n", offset2lab(offset), offset2lab(offset+consonant), mo.Consonant)
+					}
+					offset += consonant
 				}
 				if mo.Vowel != "" {
-					offset += (mo.VowelLength * sec2nanoSec) / speedScale
+					vowel := (mo.VowelLength * sec2nanoSec) / speedScale
+					if lab {
+						labStr += fmt.Sprintf("%d %d %s\n", offset2lab(offset), offset2lab(offset+vowel), mo.Vowel)
+					}
+					offset += vowel
 				}
 			}
 			if acc.PauseMora != nil && acc.PauseMora.Vowel != "" {
-				offset += (acc.PauseMora.VowelLength * item.Query.PauseLengthScale * sec2nanoSec) / speedScale
+				pause := (acc.PauseMora.VowelLength * item.Query.PauseLengthScale * sec2nanoSec) / speedScale
+				if lab {
+					labStr += fmt.Sprintf("%d %d %s\n", offset2lab(offset), offset2lab(offset+pause), acc.PauseMora.Vowel)
+				}
+				offset += pause
 			}
 		}
-		offset += item.Query.PostPhonemeLength * sec2nanoSec / speedScale
-
-		// TEMP: adjustment for the sync problem
-		offset += adjustmentNanoSec
+		postPhenome := item.Query.PostPhonemeLength * sec2nanoSec / speedScale
+		if lab {
+			labStr += fmt.Sprintf("%d %d %s\n", offset2lab(offset), offset2lab(offset+postPhenome+adjustmentNanoSec), "pau")
+		}
+		offset += postPhenome + adjustmentNanoSec
 
 		nextEpoch := zero.Add(time.Duration(offset))
 		captions = append(captions, subtitles.Caption{
@@ -101,7 +126,7 @@ func generateSubtitles(proj *model.Project, adjustmentNanoSec float64, isAivis b
 	)
 	return &subtitles.Subtitle{
 		Captions: captions,
-	}, nil
+	}, labStr, nil
 }
 
 func makeTime(h int, m int, s int, ms int) time.Time {

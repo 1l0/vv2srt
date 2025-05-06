@@ -20,7 +20,7 @@ func TestConstruct(t *testing.T) {
 
 		var proj model.Project
 		json.Unmarshal([]byte(modelVoicevox1), &proj)
-		sub, err := generateSubtitles(&proj, testAdjVoicevox, testBoolVoicevox)
+		sub, _, err := generateSubtitles(&proj, testAdjVoicevox, testBoolVoicevox, false)
 		if err != nil {
 			t.Fatal(err)
 		}

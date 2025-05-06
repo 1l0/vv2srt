@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	//  TEMP: adjustments for the sync problem
+	//  adjustments for the sync problem
 	adjustmentVoicevoxDefault = -30000000.0
 	adjustmentAivisDefault    = 60000000.0
 )
@@ -19,8 +19,9 @@ const (
 var (
 	outputFilename string
 	isAivis        bool = false
+	lab            bool = false
 
-	// TEMP: adjustment for the sync problem
+	// adjustment for the sync problem
 	adjustmentNanoSec = 0.0
 )
 
@@ -33,6 +34,7 @@ func init() {
 		adjustmentAivisDefault,
 	)
 	flag.Float64Var(&adjustmentNanoSec, "d", 0, adjReadme)
+	flag.BoolVar(&lab, "lab", false, "Generate also .lab file.")
 	flag.Parse()
 }
 
@@ -57,7 +59,6 @@ func main() {
 		isAivis = true
 	}
 
-	//  TEMP: adjustment for the sync problem
 	if adjustmentNanoSec == 0.0 {
 		if isAivis {
 			adjustmentNanoSec = adjustmentAivisDefault
@@ -66,7 +67,7 @@ func main() {
 		}
 	}
 
-	sub, err := construct.Project2subtitles(projPath, adjustmentNanoSec, isAivis)
+	sub, labStr, err := construct.Project2subtitles(projPath, adjustmentNanoSec, isAivis, lab)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -75,6 +76,7 @@ func main() {
 		log.Fatalln(err)
 	}
 	defer f.Close()
+
 	if err := f.Truncate(0); err != nil {
 		log.Fatalln(err)
 	}
@@ -83,5 +85,21 @@ func main() {
 	}
 	if _, err := f.WriteString(sub.AsSRT()); err != nil {
 		log.Fatalln(err)
+	}
+
+	if lab {
+		f, err = os.OpenFile(outputFilename+".lab", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		if err := f.Truncate(0); err != nil {
+			log.Fatalln(err)
+		}
+		if _, err := f.Seek(0, 0); err != nil {
+			log.Fatalln(err)
+		}
+		if _, err := f.WriteString(labStr); err != nil {
+			log.Fatalln(err)
+		}
 	}
 }

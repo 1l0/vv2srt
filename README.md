@@ -39,3 +39,9 @@ Add the duration adjustments (nano seconds per item):
 ```sh
 vv2srt -d "-30000000" <project name>.vvproj
 ```
+
+Generate also a .lab file:
+
+```sh
+vv2srt -lab <project name>.vvproj
+```
